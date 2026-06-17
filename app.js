@@ -22,9 +22,20 @@ const app = express()
 // ─── Security ───────────────────────────────────────────────────────────────
 app.use(helmet())
 
+const ALLOWED_ORIGINS = [
+  'https://codecranium-frontend.vercel.app',
+  'http://localhost:3000',
+  ...(env.CLIENT_URL ? [env.CLIENT_URL.replace(/\/$/, '')] : []),
+]
+
 app.use(
   cors({
-    origin: env.CLIENT_URL,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, curl, Postman)
+      if (!origin) return callback(null, true)
+      if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true)
+      callback(new Error(`CORS: origin ${origin} not allowed`))
+    },
     credentials: true,
   })
 )
