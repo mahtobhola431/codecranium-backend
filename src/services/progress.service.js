@@ -23,10 +23,13 @@ const touchStreak = (user) => {
   user.lastActiveDate = new Date()
 }
 
-export const enroll = async (user, courseId) => {
-  const course = await Course.findOne({ _id: courseId, status: 'published' })
-  if (!course) throw new ApiError(404, 'Course not found')
-
+/**
+ * Creates the Enrollment document and bumps denormalised course counters.
+ * Shared by the free-enroll path below and the post-payment path in
+ * payment.service.js — neither the price check nor the payment check
+ * belongs here, only the actual enrollment side effects.
+ */
+export const createEnrollment = async (user, course) => {
   const existing = await Enrollment.findOne({ user: user._id, course: course._id })
   if (existing) throw new ApiError(409, 'Already enrolled in this course')
 
@@ -40,6 +43,17 @@ export const enroll = async (user, courseId) => {
   Activity.log('enroll', `${user.name} enrolled in ${course.title}`, user._id)
 
   return enrollment.toPublic(course.allLessons().length)
+}
+
+export const enroll = async (user, courseId) => {
+  const course = await Course.findOne({ _id: courseId, status: 'published' })
+  if (!course) throw new ApiError(404, 'Course not found')
+
+  if (course.price > 0) {
+    throw new ApiError(402, 'This course requires payment — purchase it before enrolling')
+  }
+
+  return createEnrollment(user, course)
 }
 
 export const completeLesson = async (user, courseId, { lessonId, lessonSlug }) => {

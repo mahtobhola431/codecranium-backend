@@ -16,6 +16,8 @@ import learningPathRoutes from './src/routes/learningPath.routes.js'
 import userRoutes from './src/routes/user.routes.js'
 import instructorRoutes from './src/routes/instructor.routes.js'
 import adminRoutes from './src/routes/admin.routes.js'
+import paymentRoutes from './src/routes/payment.routes.js'
+import executionRoutes from './src/routes/execution.routes.js'
 
 const app = express()
 
@@ -57,9 +59,21 @@ const apiLimiter = rateLimit({
   legacyHeaders: false,
 })
 
+// Code execution proxies to a shared public Piston instance with its own
+// tight global limits — keep our per-IP ceiling well under that.
+const executeLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 20,
+  message: { success: false, message: 'Too many runs — wait a few minutes and try again' },
+  standardHeaders: true,
+  legacyHeaders: false,
+})
+
 // ─── Parsing & Logging ───────────────────────────────────────────────────────
 // 2mb — course editors send full lesson content/markdown in one payload
-app.use(express.json({ limit: '2mb' }))
+// verify() stashes the raw bytes so the Razorpay webhook can check its HMAC
+// signature against the exact payload Razorpay sent, not the reserialized JSON.
+app.use(express.json({ limit: '2mb', verify: (req, res, buf) => { req.rawBody = buf } }))
 app.use(express.urlencoded({ extended: true }))
 
 if (env.NODE_ENV === 'development') {
@@ -75,6 +89,8 @@ app.use('/api/v1/learning-paths', apiLimiter, learningPathRoutes)
 app.use('/api/v1/users', apiLimiter, userRoutes)
 app.use('/api/v1/instructor', apiLimiter, instructorRoutes)
 app.use('/api/v1/admin', apiLimiter, adminRoutes)
+app.use('/api/v1/payments', apiLimiter, paymentRoutes)
+app.use('/api/v1/execute', executeLimiter, executionRoutes)
 
 // ─── Health check ────────────────────────────────────────────────────────────
 app.get('/health', (req, res) => res.json({ status: 'ok', env: env.NODE_ENV }))
