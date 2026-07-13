@@ -18,6 +18,12 @@ export const registerSchema = z.object({
     .max(72, 'Password is too long'), // bcrypt silently truncates at 72 bytes
 })
 
+export const googleSchema = z.object({
+  // The ID token (a JWT) handed to us by Google Identity Services on the client.
+  // Everything inside it is verified server-side — we only check it's present.
+  credential: z.string().min(1, 'Google credential is required'),
+})
+
 export const loginSchema = z.object({
   email: z
     .string()

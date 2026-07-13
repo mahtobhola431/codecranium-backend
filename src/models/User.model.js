@@ -19,9 +19,29 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: [true, 'Password is required'],
+      // Google accounts have no password — only require one for local signups
+      required: [
+        function () {
+          return this.authProvider === 'local'
+        },
+        'Password is required',
+      ],
       minlength: [8, 'Password must be at least 8 characters'],
       select: false, // never returned in queries unless explicitly asked
+    },
+    // How the account signs in. 'google' accounts have a googleId and no password.
+    authProvider: {
+      type: String,
+      enum: ['local', 'google'],
+      default: 'local',
+    },
+    // Google's stable subject ID ('sub' claim). sparse so the unique index
+    // ignores the many local accounts where this is absent.
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      select: false,
     },
     role: {
       type: String,
@@ -84,6 +104,9 @@ userSchema.pre('save', async function () {
  * Called in auth.service.js during login.
  */
 userSchema.methods.comparePassword = async function (candidatePassword) {
+  // Google-only accounts have no hash to compare against — bcrypt.compare would
+  // throw on an undefined hash, so fail the check cleanly instead.
+  if (!this.password) return false
   return bcrypt.compare(candidatePassword, this.password)
 }
 
@@ -103,6 +126,7 @@ userSchema.methods.toPublic = function () {
     role: this.role, // extra field — lets the frontend route to /admin or /instructor
     bio: this.bio,
     plan: this.plan,
+    authProvider: this.authProvider, // lets the UI hide "change password" for Google accounts
     xp: this.xp,
     streak: this.streak,
     joinedAt: this.createdAt.toISOString(),

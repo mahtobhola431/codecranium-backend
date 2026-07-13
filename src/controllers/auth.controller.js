@@ -27,6 +27,22 @@ export const login = async (req, res) => {
 }
 
 /**
+ * POST /api/v1/auth/google
+ * Body: { credential }  — the ID token from the Google Identity Services button
+ *
+ * Response:
+ *   200 { success: true, data: { user, token } }
+ *
+ * Handles both sign-up and sign-in: if the Google account is new we create the
+ * user, otherwise we sign the existing one in. Same { user, token } shape as
+ * /login, so the frontend calls authStore.login(user, token) either way.
+ */
+export const google = async (req, res) => {
+  const result = await authService.googleAuth(req.body)
+  res.status(200).json({ success: true, data: result })
+}
+
+/**
  * GET /api/v1/auth/me
  * Headers: Authorization: Bearer <token>
  *

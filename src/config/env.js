@@ -16,6 +16,11 @@ const envSchema = z.object({
 
   // Judge0 — public code-execution API, no key required (community demo instance)
   JUDGE0_API_URL: z.string().default('https://ce.judge0.com'),
+
+  // Google Sign-In — optional so the server still boots before the OAuth client
+  // is provisioned; /auth/google throws a clear error at request time if missing.
+  // This must be the same client ID the frontend renders its button with.
+  GOOGLE_CLIENT_ID: z.string().optional(),
 })
 
 const parsed = envSchema.safeParse(process.env)
